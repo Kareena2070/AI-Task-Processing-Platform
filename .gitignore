@@ -63,3 +63,6 @@ venv.bak/
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Allow example environment files
+!.env.example
