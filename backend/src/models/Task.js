@@ -99,6 +99,18 @@ const taskSchema = new mongoose.Schema(
         message: "completedAt cannot be earlier than startedAt",
       },
     },
+    workerId: {
+      type: String,
+      default: null,
+    },
+    leaseToken: {
+      type: String,
+      default: null,
+    },
+    leaseExpiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

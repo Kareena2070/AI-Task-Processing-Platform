@@ -2,6 +2,8 @@
 
 const mongoose = require("mongoose");
 const Task = require("../models/Task");
+const logger = require("../config/logger");
+const queueService = require("./queueService");
 const AppError = require("../utils/appError");
 
 const MAX_TITLE_LENGTH = 200;
@@ -187,6 +189,64 @@ async function createTask({ userId, title, input, operation }) {
       throw new AppError(messages.join(", "), 400);
     }
     throw error;
+  }
+
+  // 6. Publish job to Redis Streams for asynchronous worker processing
+  try {
+    await queueService.publishTaskJob({
+      taskId: task._id.toString(),
+      operation: task.operation,
+      input: task.input,
+    });
+  } catch (queueError) {
+    // Compensation strategy:
+    // If Redis publishing fails after MongoDB task creation, do not leave the task
+    // silently pending or delete it blindly. Update status to 'failed' with failure reason
+    // and append an error log to preserve full diagnostic context.
+    const failureReason = queueError.message || "Failed to enqueue task for processing";
+    logger.error(
+      { taskId: task._id.toString(), error: failureReason },
+      "Task enqueueing failed; applying MongoDB compensation"
+    );
+
+    try {
+      const compensatedTask = await Task.findOneAndUpdate(
+        {
+          _id: task._id,
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "failed",
+            error: "Task created but failed to enqueue for background processing",
+          },
+          $push: {
+            logs: {
+              message: `Enqueue failed: ${failureReason}`,
+              level: "error",
+              timestamp: new Date(),
+            },
+          },
+        },
+        {
+          runValidators: true,
+        }
+      );
+
+      if (!compensatedTask) {
+        logger.warn(
+          { taskId: task._id.toString() },
+          "Task was not in pending status during enqueue compensation; status preserved"
+        );
+      }
+    } catch (compensationError) {
+      logger.error(
+        { taskId: task._id.toString(), error: compensationError.message },
+        "Compensation update failed after Redis enqueueing error"
+      );
+    }
+
+    throw new AppError("Task created but failed to enqueue for background processing", 500);
   }
 
   return formatTaskResponse(task);
