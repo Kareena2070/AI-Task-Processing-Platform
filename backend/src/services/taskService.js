@@ -90,6 +90,35 @@ function formatTaskResponse(task) {
 }
 
 /**
+ * Serializes and sanitizes task document for detailed task view,
+ * exposing safe result and error fields while excluding worker internals.
+ *
+ * @param {import("mongoose").Document} task
+ * @returns {object}
+ */
+function formatTaskDetailResponse(task) {
+  let formattedInput = task.input;
+  if (typeof task.input === "string") {
+    try {
+      formattedInput = JSON.parse(task.input);
+    } catch {
+      formattedInput = task.input;
+    }
+  }
+
+  return {
+    id: task._id.toString(),
+    title: task.title,
+    input: formattedInput,
+    operation: task.operation,
+    status: task.status,
+    result: task.result ?? null,
+    error: task.error ?? null,
+    createdAt: task.createdAt,
+  };
+}
+
+/**
  * Creates a new task associated with the authenticated user.
  *
  * @param {object} taskData
@@ -327,7 +356,7 @@ async function getTaskById({ taskId, userId }) {
     throw new AppError("Task not found", 404);
   }
 
-  return formatTaskResponse(task);
+  return formatTaskDetailResponse(task);
 }
 
 /**
@@ -447,11 +476,11 @@ async function updateTask({ taskId, userId, updateData }) {
     throw new AppError("No permitted update fields provided", 400);
   }
 
-  // 9. Execute ownership-scoped find and update
+  // 9. Execute ownership-scoped find and update restricted to pending status
   let task;
   try {
     task = await Task.findOneAndUpdate(
-      { _id: taskId, userId },
+      { _id: taskId, userId, status: "pending" },
       { $set: updatesToApply },
       { returnDocument: "after", runValidators: true }
     );
@@ -463,8 +492,15 @@ async function updateTask({ taskId, userId, updateData }) {
     throw error;
   }
 
-  // 10. If task does not exist or belongs to another user, return 404
+  // 10. If atomic update returned null, determine whether task exists for user but is non-pending
   if (!task) {
+    const existingTask = await Task.findOne({ _id: taskId, userId }).select("status");
+    if (existingTask) {
+      throw new AppError(
+        `Cannot update task with status '${existingTask.status}'. Only pending tasks can be updated`,
+        400
+      );
+    }
     throw new AppError("Task not found", 404);
   }
 
@@ -556,5 +592,6 @@ module.exports = {
   deleteTask,
   getTaskLogs,
   formatTaskResponse,
+  formatTaskDetailResponse,
   parsePaginationParams,
 };
