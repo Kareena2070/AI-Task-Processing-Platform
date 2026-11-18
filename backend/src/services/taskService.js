@@ -448,12 +448,53 @@ async function deleteTask({ taskId, userId }) {
   };
 }
 
+/**
+ * Retrieves execution logs for a task owned strictly by the authenticated user.
+ *
+ * @param {object} params
+ * @param {string} params.taskId
+ * @param {string|mongoose.Types.ObjectId} params.userId
+ * @returns {Promise<{ taskId: string, status: string, logs: Array<object> }>}
+ */
+async function getTaskLogs({ taskId, userId }) {
+  // 1. Validate userId
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    throw new AppError("Invalid user identity", 401);
+  }
+
+  // 2. Validate taskId format using strict ObjectId validation approach
+  if (
+    !taskId ||
+    typeof taskId !== "string" ||
+    !OBJECT_ID_REGEX.test(taskId) ||
+    !mongoose.Types.ObjectId.isValid(taskId)
+  ) {
+    throw new AppError("Invalid task ID format", 400);
+  }
+
+  // 3. Query MongoDB using an ownership-scoped filter selecting logs and status
+  const task = await Task.findOne({ _id: taskId, userId }).select("logs status");
+
+  // 4. Return HTTP 404 using existing AppError convention if task does not exist or belongs to another user
+  if (!task) {
+    throw new AppError("Task not found", 404);
+  }
+
+  // 5. Return taskId, status, and logs preserving log structure
+  return {
+    taskId: task._id.toString(),
+    status: task.status,
+    logs: task.logs,
+  };
+}
+
 module.exports = {
   createTask,
   getTasks,
   getTaskById,
   updateTask,
   deleteTask,
+  getTaskLogs,
   formatTaskResponse,
   parsePaginationParams,
 };

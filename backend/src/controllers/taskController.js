@@ -170,10 +170,41 @@ async function deleteTask(req, res, next) {
   }
 }
 
+/**
+ * Controller to handle GET /api/tasks/:taskId/logs
+ *
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} next
+ */
+async function getTaskLogs(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const { taskId } = req.params;
+
+    const result = await taskService.getTaskLogs({
+      taskId,
+      userId: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Task logs retrieved successfully",
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createTask,
   getTasks,
   getTaskById,
   updateTask,
   deleteTask,
+  getTaskLogs,
 };

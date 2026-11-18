@@ -12,6 +12,9 @@ router.post("/", authMiddleware, taskController.createTask);
 // GET /api/tasks (protected by authMiddleware)
 router.get("/", authMiddleware, taskController.getTasks);
 
+// GET /api/tasks/:taskId/logs (protected by authMiddleware)
+router.get("/:taskId/logs", authMiddleware, taskController.getTaskLogs);
+
 // GET /api/tasks/:taskId (protected by authMiddleware)
 router.get("/:taskId", authMiddleware, taskController.getTaskById);
 
