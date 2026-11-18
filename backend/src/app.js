@@ -3,6 +3,7 @@ const requestLogger = require("./middlewares/requestLogger");
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
 const authRoutes = require("./routes/authRoutes");
+const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
 
@@ -23,6 +24,9 @@ app.get("/health", (req, res) => {
 
 // Authentication routes
 app.use("/api/auth", authRoutes);
+
+// Task routes
+app.use("/api/tasks", taskRoutes);
 
 // Handle undefined routes (404)
 app.use(notFound);
