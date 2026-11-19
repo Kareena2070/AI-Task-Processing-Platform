@@ -16,9 +16,10 @@ async function createTask(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    // Extract only authorized input fields from req.body
+    // Extract only authorized input fields from req.validated.body with fallback to req.body
     // Deliberately ignore any client-supplied userId, status, result, error, logs, etc.
-    const { title, input, operation } = req.body || {};
+    const body = (req.validated && req.validated.body) || req.body || {};
+    const { title, input, operation } = body;
 
     const task = await taskService.createTask({
       userId: req.user._id,
@@ -52,9 +53,10 @@ async function getTasks(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    // Extract pagination parameters from req.query
+    // Extract pagination parameters from req.validated.query with fallback to req.query
     // Deliberately ignore any query-supplied userId or other filter overrides
-    const { page, limit } = req.query || {};
+    const query = (req.validated && req.validated.query) || req.query || {};
+    const { page, limit } = query;
 
     const result = await taskService.getTasks({
       userId: req.user._id,
@@ -85,7 +87,8 @@ async function getTaskById(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    const { taskId } = req.params;
+    const params = (req.validated && req.validated.params) || req.params || {};
+    const { taskId } = params;
 
     const task = await taskService.getTaskById({
       taskId,
@@ -117,8 +120,9 @@ async function updateTask(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    const { taskId } = req.params;
-    const updateData = req.body;
+    const params = (req.validated && req.validated.params) || req.params || {};
+    const { taskId } = params;
+    const updateData = (req.validated && req.validated.body) || req.body;
 
     const task = await taskService.updateTask({
       taskId,
@@ -151,7 +155,8 @@ async function deleteTask(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    const { taskId } = req.params;
+    const params = (req.validated && req.validated.params) || req.params || {};
+    const { taskId } = params;
 
     const result = await taskService.deleteTask({
       taskId,
@@ -183,7 +188,8 @@ async function getTaskLogs(req, res, next) {
       throw new AppError("Authentication required", 401);
     }
 
-    const { taskId } = req.params;
+    const params = (req.validated && req.validated.params) || req.params || {};
+    const { taskId } = params;
 
     const result = await taskService.getTaskLogs({
       taskId,

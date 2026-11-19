@@ -1,4 +1,5 @@
 const express = require("express");
+const helmet = require("helmet");
 const requestLogger = require("./middlewares/requestLogger");
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
@@ -6,6 +7,9 @@ const authRoutes = require("./routes/authRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
+
+// HTTP security headers
+app.use(helmet());
 
 // Body parsing middlewares
 app.use(express.json());

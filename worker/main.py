@@ -25,6 +25,16 @@ logging.basicConfig(
 logger = logging.getLogger("worker.main")
 
 
+def _sanitize_error_message(err: Exception, config: Config) -> str:
+    """Scans an exception message and replaces raw Redis and MongoDB URIs with masked representations."""
+    msg = str(err)
+    if config.REDIS_URL and config.REDIS_URL in msg:
+        msg = msg.replace(config.REDIS_URL, config.masked_redis_url)
+    if config.MONGODB_URI and config.MONGODB_URI in msg:
+        msg = msg.replace(config.MONGODB_URI, "[REDACTED_MONGODB_URI]")
+    return msg
+
+
 class Worker:
     """Manages the worker lifecycle, consumer loop, and job execution pipeline."""
 
@@ -44,7 +54,7 @@ class Worker:
         """Validates configuration and verifies database/queue connectivity."""
         self.config.validate()
 
-        logger.info(f"Connecting to Redis at {self.config.REDIS_URL}...")
+        logger.info(f"Connecting to Redis at {self.config.masked_redis_url}...")
         self.redis.connect()
 
         logger.info("Connecting to MongoDB Atlas...")
@@ -341,7 +351,10 @@ class Worker:
 
             except Exception as e:
                 if self.running:
-                    logger.error(f"Unexpected error in consumer loop: {e}", exc_info=True)
+                    sanitized_err = _sanitize_error_message(e, self.config)
+                    logger.error(
+                        f"Unexpected error in consumer loop ({type(e).__name__}): {sanitized_err}"
+                    )
                     time.sleep(1.0)
 
         logger.info("Exiting consumer loop...")
@@ -366,7 +379,8 @@ def main():
         worker.setup()
         worker.run()
     except Exception as e:
-        logger.error(f"Fatal worker startup error: {e}")
+        sanitized_err = _sanitize_error_message(e, config)
+        logger.error(f"Fatal worker startup error ({type(e).__name__}): {sanitized_err}")
         worker.cleanup()
         sys.exit(1)
 

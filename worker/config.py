@@ -3,6 +3,7 @@
 import os
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 # Attempt to load python-dotenv if installed
 try:
@@ -22,8 +23,48 @@ except ImportError:
     pass
 
 
+def mask_redis_url(url: str) -> str:
+    """Masks credentials in a Redis URL using urllib.parse while preserving safe diagnostics.
+
+    Replaces username/password with '***:***@' if present, strips query parameters and
+    fragments, and preserves scheme, host, port, and database path.
+    Returns '[REDACTED_URL]' if parsing fails or input is malformed/empty.
+    """
+    if not url or not isinstance(url, str):
+        return "[REDACTED_URL]"
+    try:
+        parts = urlsplit(url.strip())
+        if not parts.scheme or not parts.hostname:
+            return "[REDACTED_URL]"
+
+        # Validates that port is an integer if specified; raises ValueError if malformed
+        port = parts.port
+        port_str = f":{port}" if port is not None else ""
+
+        auth_str = ""
+        if parts.username or parts.password or "@" in parts.netloc:
+            auth_str = "***:***@"
+
+        # Format IPv6 bracket wrapping if needed
+        host = (
+            f"[{parts.hostname}]"
+            if ":" in parts.hostname and not parts.hostname.startswith("[")
+            else parts.hostname
+        )
+        netloc = f"{auth_str}{host}{port_str}"
+
+        return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+    except Exception:
+        return "[REDACTED_URL]"
+
+
 class Config:
     """Worker configuration container."""
+
+    @property
+    def masked_redis_url(self) -> str:
+        """Returns the REDIS_URL with credentials and query parameters masked."""
+        return mask_redis_url(self.REDIS_URL)
 
     def __init__(self):
         self.REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379")

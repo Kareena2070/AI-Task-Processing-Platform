@@ -14,14 +14,19 @@ function errorHandler(err, req, res, next) {
   }
 
   const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+  const isProduction = process.env.NODE_ENV === "production";
+
+  const message =
+    isProduction && statusCode >= 500
+      ? "Internal Server Error"
+      : err.message || "Internal Server Error";
 
   const errorDetails = {
     statusCode,
     message: err.message,
     method: req.method,
     url: getSanitizedPath(req),
-    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
+    stack: !isProduction ? err.stack : undefined,
   };
 
   if (statusCode >= 500) {
@@ -35,7 +40,7 @@ function errorHandler(err, req, res, next) {
     message,
   };
 
-  if (process.env.NODE_ENV !== "production" && err.stack) {
+  if (!isProduction && err.stack) {
     response.stack = err.stack;
   }
 

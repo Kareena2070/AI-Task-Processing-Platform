@@ -94,6 +94,13 @@ export function useTaskPolling(taskId) {
           return;
         }
 
+        // Rate limit error (429): stop automatic polling immediately, display backend message, preserve task and logs
+        if (statusCode === 429) {
+          setError(errorMessage);
+          setIsLoading(false);
+          return;
+        }
+
         // Transient network or server error: record warning and retry after delay
         setError(errorMessage);
         setIsLoading(false);

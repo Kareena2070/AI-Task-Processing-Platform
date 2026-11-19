@@ -41,7 +41,7 @@ export default function TaskDetailsPage() {
           </div>
         )}
 
-        {!isLoading && !error && task && (
+        {!isLoading && task && (
           <>
             <TaskDetailsHeader task={task} isPolling={isPolling} />
             <TaskResult task={task} />
